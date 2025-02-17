@@ -30,3 +30,17 @@
 *.exe
 *.out
 *.app
+
+# xv6
+# Ignore xv6 build artifacts
+fs.img
+kernel/kernel
+kernel/kernel.asm
+kernel/kernel.sym
+mkfs/mkfs
+user/_*
+user/*.asm
+user/*.sym
+user/initcode
+user/initcode.asm
+user/usys.S
