@@ -35,21 +35,7 @@ riscv64-linux-gnu-ld: warning: cannot find entry symbol _entry; defaulting to 00
 riscv64-linux-gnu-objdump -S kernel/kernel > kernel/kernel.asm
 riscv64-linux-gnu-objdump -t kernel/kernel | sed '1,/SYMBOL TABLE/d; s/ .* / /; /^$/d' > kernel/kernel.sym
 make[1]: Leaving directory '/home/xv6'
-Testing large files: (5.4s) 
-  Large files: public testcase 1 (6 points): FAIL 
-    ...
-         ..
-         wrote 268 blocks
-         FAILURE: bigfile: file is too small
-         
-         $ qemu-system-riscv64: terminating on signal 15 from pid 231 (make)
-    MISSING '^public testcase 1: ok$'
-  Large files: public testcase 2 (6 points): FAIL 
-    ...
-         ..
-         wrote 268 blocks
-         FAILURE: bigfile: file is too small
-         
-         $ qemu-system-riscv64: terminating on signal 15 from pid 231 (make)
-    MISSING '^public testcase 2: ok$'
-Score: 0/12
+Testing large files: (41.9s) 
+  Large files: public testcase 1 (6 points): OK 
+  Large files: public testcase 2 (6 points): OK 
+Score: 12/12
