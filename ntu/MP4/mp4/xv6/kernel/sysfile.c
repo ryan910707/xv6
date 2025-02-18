@@ -15,6 +15,8 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+//mp4
+#include "buf.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -310,6 +312,38 @@ sys_open(void)
       return -1;
     }
   } else {
+    //mp4
+    // check if it is symbolic link
+    if((omode & O_NOFOLLOW) == 0) {
+      int depth = 0;
+
+      while (depth < 11) {
+        if((ip = namei(path)) == 0){
+          end_op();
+          return -1;
+        }
+        ilock(ip);
+
+        if(ip->type == T_SYMLINK) {
+          struct buf *b = bread(ip->dev, ip->addrs[0]);
+          memmove(path, b->data, MAXPATH);
+          brelse(b);
+        }
+        else {
+          iunlockput(ip);
+          break;
+        }
+
+        iunlockput(ip);
+        depth++;
+      }
+
+      if(depth >= 10){
+        end_op();
+        return -1;
+      }
+    }
+    //mp4
     if((ip = namei(path)) == 0){
       end_op();
       return -1;
@@ -500,15 +534,28 @@ sys_symlink(void)
 {
   // TODO: symbolic link
   // You should implement this symlink system call.
-  // char target[MAXPATH], path[MAXPATH];
-  // int fd;
-  // struct file *f;
-  // struct inode *ip;
+  char target[MAXPATH], path[MAXPATH];
+  struct inode *ip;
 
-  // if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
-  //   return -1;
+  if(argstr(0, target, MAXPATH) < 0 || argstr(1, path, MAXPATH) < 0)
+    return -1;
   
-  panic("You should implement symlink system call.");
+  begin_op();
 
+  ip = create(path, T_SYMLINK, 0, 0);
+  if(ip==0){
+    end_op();
+    return -1;
+  }
+
+  if(writei(ip, 0, (uint64)target, 0, MAXPATH) != MAXPATH){
+    iunlockput(ip);
+    end_op();
+    return -1;
+  }
+
+  iunlockput(ip);
+
+  end_op();
   return 0;
 }
