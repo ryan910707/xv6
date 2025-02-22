@@ -687,23 +687,25 @@ skipelem(char *path, char *name)
 static struct inode*
 namex(char *path, int nameiparent, char *name)
 {
-  // TODO: Symbolic Link to Directories
-  // Modify this function to deal with symbolic links to directories.
+  //TODO
   struct inode *ip, *next;
-  
+  int depth = 0;
+  int MAX_DEPTH = 11;
+
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
   else
     ip = idup(myproc()->cwd);
 
-  while((path = skipelem(path, name)) != 0){
+  while((path = skipelem(path, name)) != 0 && depth < MAX_DEPTH){
     ilock(ip);
+
     if(ip->type != T_DIR){
       iunlockput(ip);
       return 0;
     }
+
     if(nameiparent && *path == '\0'){
-      // Stop one level early.
       iunlock(ip);
       return ip;
     }
@@ -711,15 +713,43 @@ namex(char *path, int nameiparent, char *name)
       iunlockput(ip);
       return 0;
     }
+
     iunlockput(ip);
     ip = next;
+
+    if(ip->type == T_SYMLINK) {
+      ilock(ip);
+      struct buf *b = bread(ip->dev, ip->addrs[0]);
+      char tmp[MAXPATH];
+      memmove(tmp, b->data, MAXPATH);
+      brelse(b);
+
+      strcat(tmp, "/");
+      strcat(tmp, path);
+      //wrong, tmp is longer than path
+      // strncpy(path, tmp, MAXPATH);
+      //correct
+      char buf[MAXPATH];
+      strncpy(buf, tmp, MAXPATH);
+      path = buf;
+
+      iunlock(ip);
+      //check for absolute path
+      if(*path == '/')
+        ip = iget(ROOTDEV, ROOTINO);
+
+      depth++;
+    }
   }
-  if(nameiparent){
+
+  if(nameiparent || depth >= MAX_DEPTH){
     iput(ip);
     return 0;
   }
+
   return ip;
 }
+
 
 struct inode*
 namei(char *path)

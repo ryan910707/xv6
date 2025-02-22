@@ -448,7 +448,19 @@ sys_chdir(void)
     iunlockput(ip);
     end_op();
     return -1;
-  }
+  } 
+  //mp4
+  // if(ip->type == T_SYMLINK) { 
+  //   struct buf *b = bread(ip->dev, ip->addrs[0]);
+  //   memmove(path, b->data, MAXPATH);
+  //   brelse(b);
+  //   if((ip = namei(path)) == 0){
+  //     iunlockput(ip);
+  //     end_op();
+  //     return -1;
+  //   }
+  // }
+  //mp4
   iunlock(ip);
   iput(p->cwd);
   end_op();
