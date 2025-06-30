@@ -20,6 +20,7 @@
 #include "fs.h"
 #include "buf.h"
 #include "file.h"
+#include "syscall.h"
 
 #define min(a, b) ((a) < (b) ? (a) : (b))
 // there should be one superblock per disk device, but we run with
@@ -685,27 +686,47 @@ skipelem(char *path, char *name)
 // path element into name, which must have room for DIRSIZ bytes.
 // Must be called inside a transaction since it calls iput().
 static struct inode*
-namex(char *path, int nameiparent, char *name)
+namex(char *path, int nameiparent, char *name, int depth)
 {
-  //TODO
+  // TODO: Symbolic Link to Directories
+  // Modify this function to deal with symbolic links to directories.
   struct inode *ip, *next;
-  int depth = 0;
-  int MAX_DEPTH = 11;
 
   if(*path == '/')
     ip = iget(ROOTDEV, ROOTINO);
   else
     ip = idup(myproc()->cwd);
 
-  while((path = skipelem(path, name)) != 0 && depth < MAX_DEPTH){
+  while((path = skipelem(path, name)) != 0){
     ilock(ip);
+    if (ip->type == T_SYMLINK) {
+      if (depth >= 10) {
+        iunlockput(ip);
+        return 0;
+      }
+      // open symlink directory recursively
+      // read the target path
+      char target[MAXPATH];
+      if (readi(ip, 0, (uint64)target, 0, MAXPATH) < 0) {
+        iunlockput(ip);
+        return 0;
+      }
+      iunlockput(ip);
+
+      // open the target inode
+      char name[DIRSIZ];
+      if ((ip = namex(target, 0, name, depth + 1)) == 0) {
+        return 0;
+      }
+      ilock(ip);
+    }
 
     if(ip->type != T_DIR){
       iunlockput(ip);
       return 0;
     }
-
     if(nameiparent && *path == '\0'){
+      // Stop one level early.
       iunlock(ip);
       return ip;
     }
@@ -713,53 +734,25 @@ namex(char *path, int nameiparent, char *name)
       iunlockput(ip);
       return 0;
     }
-
     iunlockput(ip);
     ip = next;
-
-    if(ip->type == T_SYMLINK) {
-      ilock(ip);
-      struct buf *b = bread(ip->dev, ip->addrs[0]);
-      char tmp[MAXPATH];
-      memmove(tmp, b->data, MAXPATH);
-      brelse(b);
-
-      strcat(tmp, "/");
-      strcat(tmp, path);
-      //wrong, tmp is longer than path
-      // strncpy(path, tmp, MAXPATH);
-      //correct
-      char buf[MAXPATH];
-      strncpy(buf, tmp, MAXPATH);
-      path = buf;
-
-      iunlock(ip);
-      //check for absolute path
-      if(*path == '/')
-        ip = iget(ROOTDEV, ROOTINO);
-
-      depth++;
-    }
   }
-
-  if(nameiparent || depth >= MAX_DEPTH){
+  if(nameiparent){
     iput(ip);
     return 0;
   }
-
   return ip;
 }
-
 
 struct inode*
 namei(char *path)
 {
   char name[DIRSIZ];
-  return namex(path, 0, name);
+  return namex(path, 0, name, 0);
 }
 
 struct inode*
 nameiparent(char *path, char *name)
 {
-  return namex(path, 1, name);
+  return namex(path, 1, name, 0);
 }
